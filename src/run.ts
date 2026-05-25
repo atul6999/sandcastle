@@ -310,7 +310,9 @@ export function run(
 ): Promise<RunResult & { output: string }>;
 /** Overload: without `output`, returns the standard `RunResult`. */
 export function run(options: RunOptions): Promise<RunResult>;
-export async function run(options: RunOptions): Promise<RunResult & { output?: unknown }> {
+export async function run(
+  options: RunOptions,
+): Promise<RunResult & { output?: unknown }> {
   // If signal is already aborted, reject immediately without any setup
   options.signal?.throwIfAborted();
 
@@ -596,6 +598,10 @@ export async function run(options: RunOptions): Promise<RunResult & { output?: u
 
   // Extract structured output after the iteration completes (separate pass from completion signal)
   if (options.output) {
+    // Structured output runs are single-iteration, so the last iteration is the
+    // one that produced this stdout. Carry its session id onto the error so a
+    // caller can resume the same session to re-emit corrected output.
+    const lastIteration = baseResult.iterations.at(-1);
     const output = await extractStructuredOutput(
       baseResult.stdout,
       options.output,
@@ -603,6 +609,8 @@ export async function run(options: RunOptions): Promise<RunResult & { output?: u
         commits: baseResult.commits,
         branch: baseResult.branch,
         preservedWorktreePath: baseResult.preservedWorktreePath,
+        sessionId: lastIteration?.sessionId,
+        sessionFilePath: lastIteration?.sessionFilePath,
       },
     );
     return { ...baseResult, output };

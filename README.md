@@ -631,6 +631,26 @@ console.log(result.output.score); // typed as number
 
 `Output.string({ tag })` extracts the tag contents as a plain string (trimmed, no JSON parsing). Both helpers require `maxIterations` to be `1` (the default). The resolved prompt must contain the configured opening tag literal.
 
+When extraction or validation fails, `run()` throws a `StructuredOutputError`. Alongside `tag`, `rawMatched`, `cause`, `commits`, `branch`, and `preservedWorktreePath`, the error carries the `sessionId` (and `sessionFilePath`, when the session was captured) of the run that produced the bad output. You can resume that session to ask the agent to re-emit corrected output, without repeating the work:
+
+```ts
+import { run, Output, StructuredOutputError } from "@ai-hero/sandcastle";
+
+try {
+  return await run({ ...opts, output });
+} catch (e) {
+  if (e instanceof StructuredOutputError && e.sessionId) {
+    return await run({
+      ...opts,
+      output,
+      resumeSession: e.sessionId,
+      prompt: `Your previous output failed: ${e.message}. Re-emit it inside <${e.tag}> tags.`,
+    });
+  }
+  throw e;
+}
+```
+
 ### Templates
 
 `sandcastle init` prompts you to choose a sandbox provider (Docker or Podman), a backlog manager (GitHub Issues or Beads), and a template, which scaffolds a ready-to-use prompt and `main.mts` suited to a specific workflow. If your project's `package.json` has `"type": "module"`, the file will be named `main.ts` instead. Five templates are available:
